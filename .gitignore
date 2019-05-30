@@ -1,6 +1,6 @@
 .idea/workspace.xml
 *.log
-
+test/Unwrap3d*.egg-info
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
