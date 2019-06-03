@@ -14,6 +14,7 @@ extensions.append(
     Extension('Unwrap3d',
               sources=['unwrap3dInterface.cpp'],
               include_dirs=[includeDirs],
+	      install_requires=['numpy',]
               #library_dirs=[libDirs], giving a blank lib list causes errors!
               #libraries=libs, giving a blank lib list causes errors!
               #extra_compile_args=[]
