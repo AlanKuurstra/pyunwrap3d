@@ -719,8 +719,134 @@ unwrap3d(PyObject* self, PyObject* args)
    return PyUnwrappedVolume;
 }
 
+//set the masked voxels (mask = 0) to the minimum of the unwrapper phase
+void  maskReliabilityVolume(VOXELM *voxel, unsigned char *input_mask, int volume_width, int volume_height, int volume_depth)
+{
+	int volume_width_plus_one  = volume_width + 1;
+	int volume_height_plus_one  = volume_height + 1;
+	int volume_width_minus_one = volume_width - 1;
+	int volume_height_minus_one = volume_height - 1;
+
+	VOXELM *pointer_voxel = voxel;
+	unsigned char *IMP = input_mask;	//input mask pointer
+	float min=0.;
+	int i, j;
+	int volume_size = volume_width * volume_height * volume_depth;
+   int first = 1;
+
+	//find the minimum of the unwrapped phase
+#if 0
+	for (i = 0; i < volume_size; i++)
+	{
+      if (first && (*IMP != 0)) {
+         min = pointer_voxel->value;
+         first = 0;
+      }
+      else if ((pointer_voxel->value < min) && (*IMP != 0  )) 
+			min = pointer_voxel->value;
+
+		pointer_voxel++;
+		IMP++;
+	}
+
+	pointer_voxel = voxel;
+	IMP = input_mask;	
+#endif
+
+	//set the masked voxels to minimum
+	for (i = 0; i < volume_size; i++)
+	{
+		if ((*IMP) == 0)
+		{
+			pointer_voxel->reliability = min;
+		}
+		pointer_voxel++;
+		IMP++;
+	}
+}
+
+//the input to this unwrapper is an array that contains the wrapped phase map. 
+//copy the volume on the buffer passed to this unwrapper to over write the unwrapped 
+//phase map on the buffer of the wrapped phase map.
+void  returnReliabilityVolume(VOXELM *voxel, float *unwrappedVolume, int volume_width, int volume_height, int volume_depth)
+{
+	int i;
+	int volume_size = volume_width * volume_height * volume_depth;
+   float *unwrappedVolume_pointer = unwrappedVolume;
+   VOXELM *voxel_pointer = voxel;
+
+   for (i=0; i < volume_size; i++) 
+	{
+      *unwrappedVolume_pointer = voxel_pointer->reliability;
+      voxel_pointer++;
+		unwrappedVolume_pointer++;
+	}
+}
+
+//extern "C" PyObject*
+static PyObject*
+calc_reliability(PyObject* self, PyObject* args)
+{
+   //bind c pointers to python function arguments
+   PyObject *PyWrappedVolume=NULL,*PyMask=NULL;
+   if (!PyArg_ParseTuple(args, "OO", &PyWrappedVolume,&PyMask)) return NULL;
+   //note that pyarg_parsetuple only receives a "temporary reference" to the arguments
+   //this means we do not need to increase and decrease the reference count ourselves
+
+   //input array could have incorrect row-major/column-major strides, byte ordering, datatype/memory alignment
+   //use the following functions to guaranteed desired properties
+   //rewrites into a new memory buffer ONLY IF NECCESSARY
+   PyObject *PyMaskGoodFlags=NULL, *PyWrappedVolumeGoodFlags=NULL;
+   PyMaskGoodFlags = PyArray_FROM_OTF(PyMask, NPY_BOOL, NPY_ARRAY_IN_FARRAY);
+   if (PyMaskGoodFlags == NULL) return NULL;
+   PyWrappedVolumeGoodFlags = PyArray_FROM_OTF(PyWrappedVolume, NPY_FLOAT32, NPY_ARRAY_IN_FARRAY);
+   //pyarray_from_otf incresases reference count, remember to decrease reference count at the end
+   if (PyWrappedVolumeGoodFlags == NULL) return NULL;
+
+   //output is like the corrected input (float 32 and fortran style strides)
+   PyObject *PyUnwrappedVolume = PyArray_NewLikeArray((PyArrayObject *)PyWrappedVolumeGoodFlags, NPY_ANYORDER, NULL, 0);
+   //this function automatically increases the reference count to pyunwrappedvolume for you, so
+   //no need for INCREF(PyUnwrappedVolume) at the end of the function (near return PyUnwrappedVolume)
+
+   npy_intp *dims=PyArray_DIMS(PyWrappedVolumeGoodFlags);
+   int volume_width = dims[0];
+   int volume_height = dims[1];
+   int volume_depth = dims[2];
+   int volume_size = volume_height * volume_width * volume_depth;
+   int No_of_edges=0;
+   int No_of_Edges_initially = 3 * volume_width * volume_height * volume_depth;
+
+   //get pointers to numpy array's memory buffer and cast to appropriate c pointers
+   float *WrappedVolume = (float *) PyArray_DATA(PyWrappedVolumeGoodFlags);
+   float *UnwrappedVolume = (float *) PyArray_DATA(PyUnwrappedVolume);
+   unsigned char *input_mask = (unsigned char *) PyArray_DATA(PyMaskGoodFlags);
+   unsigned char *extended_mask = (unsigned char *) calloc(volume_size, sizeof(unsigned char));
+
+   //do the algorithm
+   VOXELM *voxel = (VOXELM *) calloc(volume_size, sizeof(VOXELM));
+
+   extend_mask(input_mask, extended_mask, volume_width, volume_height, volume_depth);
+
+   initialiseVOXELs(WrappedVolume, input_mask, extended_mask, voxel, volume_width, volume_height, volume_depth);
+
+   calculate_reliability(WrappedVolume, voxel, volume_width, volume_height, volume_depth);
+
+   maskReliabilityVolume(voxel, input_mask, volume_width, volume_height, volume_depth);
+
+   //copy the volume from VOXELM structure to the unwrapped phase array passed to this function
+   returnReliabilityVolume(voxel, UnwrappedVolume, volume_width, volume_height, volume_depth);
+
+   //memory management
+   free(voxel);
+   free(extended_mask);
+   Py_DECREF(PyWrappedVolumeGoodFlags);
+   Py_DECREF(PyMaskGoodFlags);
+   return PyUnwrappedVolume;
+}
+
 static PyMethodDef module_methods[] = {
    {"unwrap3d",unwrap3d,METH_VARARGS,"python wrapper for unwrap3d"},
+   {"calculate_reliability",calc_reliability,METH_VARARGS,"python wrapper for calculate_reliability"},
    {NULL}
 };
 static struct PyModuleDef Unwrap3dmodule = {

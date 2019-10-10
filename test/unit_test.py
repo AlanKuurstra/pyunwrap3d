@@ -28,6 +28,8 @@ good_result = np.load(os.path.join(fdir,'unwrapped_result.npy'))
 img = nib.load(os.path.join(fdir,'test_img.nii.gz')).get_data()
 mask=nib.load(os.path.join(fdir,'test_img_mask.nii.gz')).get_data()
 
+
+
 img=np.asfortranarray(img,'float32')
 mask=np.asfortranarray(mask,'bool')
 result = Unwrap3d.unwrap3d(img,mask)
@@ -39,9 +41,7 @@ mask=np.ascontiguousarray(mask,'bool')
 result = Unwrap3d.unwrap3d(img,mask)
 assert (result==good_result).all(), 'algorithm failed with c style array'
 
-#from vidi3d import compare3d
-#compare3d((img,result))
-
-
-
-
+img = np.ascontiguousarray(img,'float32')
+mask=np.ascontiguousarray(np.ones_like(mask),'bool')
+result = Unwrap3d.calculate_reliability(img,mask)
+#from vidi3d import compare3d;compare3d((img,result))

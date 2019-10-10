@@ -23,7 +23,7 @@ extensions.append(
 
 setup(
     name="Unwrap3d",
-    version="0.1",
+    version="0.2",
     description = "Python interface to unwrap3d",
     #packages=['PfileInterface'],
     ext_modules=extensions)
