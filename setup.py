@@ -1,29 +1,30 @@
-import setuptools
-from distutils.core import setup, Extension
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext as build_ext_setuptools_version
 
-import numpy
-import os
+#this method fails if numpy is not yet installed, instead override the build_ext command
+#import numpy
+#includeDirs = numpy.get_include()
 
 extensions = []
-
-includeDirs = numpy.get_include()
-libDirs = "" #giving a blank lib list causes errors!
-libs = ""
-
 extensions.append(
-    Extension('Unwrap3d',
+    Extension('pyunwrap3d',
               sources=['unwrap3dInterface.cpp'],
-              include_dirs=[includeDirs],
-              install_requires=['numpy'],
-              #library_dirs=[libDirs], giving a blank lib list causes errors!
-              #libraries=libs, giving a blank lib list causes errors!
-              #extra_compile_args=[]
+              #include_dirs=[numpy.get_include()],
+              #install_requires=['numpy']
               )
     )
 
+class build_ext(build_ext_setuptools_version):
+    def run(self):
+        import numpy
+        self.include_dirs.append(numpy.get_include())
+        build_ext_setuptools_version.run(self)
+
 setup(
-    name="Unwrap3d",
-    version="0.2",
+    name="pyunwrap3d",
+    version="0.3",
     description = "Python interface to unwrap3d",
-    #packages=['PfileInterface'],
+    cmdclass={'build_ext':build_ext},
+    setup_requires=['numpy'],
+    install_requires=['numpy'],
     ext_modules=extensions)

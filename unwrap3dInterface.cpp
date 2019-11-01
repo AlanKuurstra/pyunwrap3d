@@ -849,17 +849,17 @@ static PyMethodDef module_methods[] = {
    {"calculate_reliability",calc_reliability,METH_VARARGS,"python wrapper for calculate_reliability"},
    {NULL}
 };
-static struct PyModuleDef Unwrap3dmodule = {
+static struct PyModuleDef pyunwrap3dmodule = {
    PyModuleDef_HEAD_INIT,
-   "Unwrap3d",
+   "pyunwrap3d",
    NULL,
    -1,
    module_methods
 };
 PyMODINIT_FUNC
-PyInit_Unwrap3d(void)
+PyInit_pyunwrap3d(void)
 {
-	PyObject *m = PyModule_Create(&Unwrap3dmodule);
+	PyObject *m = PyModule_Create(&pyunwrap3dmodule);
 	if (m == NULL)
 		return NULL;
 	import_array();
